@@ -25,3 +25,14 @@ do
 done
 convert hor*.png -background none -mosaic gotowy_horizontal.png
 convert ver*.png -background none -mosaic gotowy_vertical.png
+
+#This will change .png files in a folder that this scipt is executed in rows and columns of .png files
+#After that this will append all this small images together but from different keyframes
+#This should replicate time warp filter AKA blue line filter from instagram and TIKTOK
+#After I find out why it doesn't work that well
+#If some transformed .png images gives errors saying that geometry wasn't found by Imagemagic use:
+#convert $f -crop  "$height"X"$number_of_pixels_to_move_hor"+0+$i -append "hor"$f
+#convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 +append "ver"$f
+#as separate commads but before that delete corrupted .png files
+#If You want to split .mp4 video to .png files You may use this:
+#ffmpeg -r 1 -i $1 -r 1 "img%04d.png"

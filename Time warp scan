@@ -1,0 +1,27 @@
+#!/bin/bash
+#FILES=/path/to/*
+files=(*.png)
+numberoffiles=$(ls -l *.png | wc -l)
+#firstfile= "$files"
+width=$(identify -format "%w" $files)
+height=$(identify -format "%h" $files)
+number_of_pixels_to_move_hor=$((("$width"+"$numberoffiles"-1)/"$numberoffiles"))
+number_of_pixels_to_move_ver=$((("$height"+"$numberoffiles"-1)/"$numberoffiles"))
+i=0
+j=0
+#ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
+for f in *.png
+do
+  echo "Processing $f file..."
+  convert $f -crop  "$height"X"$number_of_pixels_to_move_hor"+0+$i -append "hor"$f
+  convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 +append "ver"$f
+  #convert $f -append test.png
+#nie działa dodwanie do istniejącego pliku :(((
+  i=$(($i+$number_of_pixels_to_move_hor))
+  j=$(($j+$number_of_pixels_to_move_ver))
+  #echo $i
+  #echo $width
+  #echo $height
+done
+convert hor*.png -background none -mosaic gotowy_horizontal.png
+convert ver*.png -background none -mosaic gotowy_vertical.png

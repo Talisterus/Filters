@@ -36,3 +36,5 @@ convert ver*.png -background none -mosaic gotowy_vertical.png
 #as separate commads but before that delete corrupted .png files
 #If You want to split .mp4 video to .png files You may use this:
 #ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
+#this should work on Linux with Imagemagic
+#time warp filter Linux

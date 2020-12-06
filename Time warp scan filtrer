@@ -1,0 +1,71 @@
+#!/bin/bash
+#FILES=/path/to/*
+
+#How to use:
+#use command ./blsf.sh name_of_your_video.mp4
+
+
+#zapisuje wideo jako serie obrazków
+ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
+files=(img*.png)
+echo "nazwa pierwszego pliku to "$files
+numberoffiles=$(ls -l *.png | wc -l)
+#firstfile= "$files"
+
+#sprawdzam jakie są wysokość i szerokość pierwszego obrazka
+width=$(identify -format "%w" $files)
+height=$(identify -format "%h" $files)
+
+echo "width is"$width
+echo "height is"$height
+
+
+
+#jak szeroki ma być pasek przesuwający się po ekranie, uśredniony do liczby całkowitej
+#number_of_pixels_to_move_hor=$((("$height"+"$numberoffiles"-1)/"$height"))
+number_of_pixels_to_move_hor=$(("$height"/"$numberoffiles"))
+#number_of_pixels_to_move_ver=$((("$width"+"$numberoffiles"-1)/"$width"))
+number_of_pixels_to_move_ver=$(("$width"/"$numberoffiles"))
+i=0
+j=0
+horizontal_temporary_frame=$files
+  vertical_temporary_frame=$files
+#ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
+convert -size "$width"X1 canvas:transparent hor_video_base_frame.png
+convert -size 1X"$height" canvas:transparent ver_video_base_frame.png
+
+
+for f in "img"*.png
+do
+  echo "Processing $f file..."
+#  convert $f -crop  "$height"X"$number_of_pixels_to_move_hor"+0+$i -append "hor_video_"$f
+#  convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 +append "ver_video_"$f
+#chce zeby wycinek nadpisal sie na oryginalnej klatce i iterowal tak dalej
+  
+
+  convert $f -crop "$width"X"$number_of_pixels_to_move_hor"+0+$i -rotate 180 hor_video_base_frame.png -append hor_video_base_frame.png
+  convert $f \( hor_video_base_frame.png -rotate 180 \) -composite "hor_video_"$f
+  convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 -rotate 180 ver_video_base_frame.png +append ver_video_base_frame.png
+  convert $f \( ver_video_base_frame.png -rotate 180 \) -composite "ver_video_"$f
+  
+
+#convert *.png -background none -mosaic gotowy.png
+  #convert -size "$width"X"$height" canvas:transparent \(  $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 \) -geometry +$j+0 -composite "ver_video_"$f
+  #convert $f -append test.png
+#nie działa dodwanie do istniejącego pliku :(((
+  i=$(($i+$number_of_pixels_to_move_hor))
+  j=$(($j+$number_of_pixels_to_move_ver))
+  #echo $i
+  #echo $width
+  #echo $height
+  #horizontal_temporary_frame="hor_video_"$f
+done
+#echo "Processing still horizontal image..."
+#convert hor*.png -background none -mosaic gotowy_horizontal.png
+#echo "Processing still vertical image..."
+#convert ver*.png -background none -mosaic gotowy_vertical.png
+echo "Processing horizontal video..."
+#Nie dodaje audio do plików...
+ffmpeg -i "hor_video_img%04d.png" -i $1 -r:v 30 -c copy -map 0:v:0 -map 1:a:0 -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an hor_video.mp4
+echo "Processing vertical video..."
+ffmpeg -i "ver_video_img%04d.png" -i $1 -r:v 30 -c copy -map 0:v:0 -map 1:a:0 -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an ver_video.mp4

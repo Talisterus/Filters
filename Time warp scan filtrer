@@ -4,6 +4,8 @@
 #How to use:
 #use command ./blsf.sh name_of_your_video.mp4
 
+#sprawdzam framerate video
+framerate=$(ffmpeg -i $1 2>&1 | sed -n "s/.*, \(.*\) fp.*/\1/p")
 
 #zapisuje wideo jako serie obrazków
 ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
@@ -11,6 +13,7 @@ files=(img*.png)
 echo "nazwa pierwszego pliku to "$files
 numberoffiles=$(ls -l *.png | wc -l)
 #firstfile= "$files"
+echo "Numer of files is " $numberoffiles
 
 #sprawdzam jakie są wysokość i szerokość pierwszego obrazka
 width=$(identify -format "%w" $files)
@@ -23,11 +26,14 @@ echo "height is"$height
 
 #jak szeroki ma być pasek przesuwający się po ekranie, uśredniony do liczby całkowitej
 #number_of_pixels_to_move_hor=$((("$height"+"$numberoffiles"-1)/"$height"))
-number_of_pixels_to_move_hor=$(("$height"/"$numberoffiles"))
+number_of_pixels_to_move_hor=$((("$height"/"$numberoffiles")+1))
+echo " numer of pixels to move horizontally is " $number_of_pixels_to_move_hor
 #number_of_pixels_to_move_ver=$((("$width"+"$numberoffiles"-1)/"$width"))
-number_of_pixels_to_move_ver=$(("$width"/"$numberoffiles"))
-i=0
-j=0
+number_of_pixels_to_move_ver=$((("$width"/"$numberoffiles")+1))
+echo " numer of pixels to move vertically is " $number_of_pixels_to_move_ver
+i=1
+j=1
+count_loop=0
 horizontal_temporary_frame=$files
   vertical_temporary_frame=$files
 #ffmpeg -r 1 -i $1 -r 1 "img%04d.png"
@@ -37,16 +43,17 @@ convert -size 1X"$height" canvas:transparent ver_video_base_frame.png
 
 for f in "img"*.png
 do
-  echo "Processing $f file..."
+count_loop=$(($count_loop+1))
+  echo "Processing $f file... ($count_loop of $numberoffiles)"
 #  convert $f -crop  "$height"X"$number_of_pixels_to_move_hor"+0+$i -append "hor_video_"$f
 #  convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 +append "ver_video_"$f
 #chce zeby wycinek nadpisal sie na oryginalnej klatce i iterowal tak dalej
   
 
   convert $f -crop "$width"X"$number_of_pixels_to_move_hor"+0+$i -rotate 180 hor_video_base_frame.png -append hor_video_base_frame.png
-  convert $f \( hor_video_base_frame.png -rotate 180 \) -composite "hor_video_"$f
+  convert $f \( hor_video_base_frame.png -rotate 180 \) \( -stroke cyan -draw "line 0,$i $width,$i" \) -composite "hor_video_"$f
   convert $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 -rotate 180 ver_video_base_frame.png +append ver_video_base_frame.png
-  convert $f \( ver_video_base_frame.png -rotate 180 \) -composite "ver_video_"$f
+  convert $f \( ver_video_base_frame.png -rotate 180 \) \( -stroke cyan -draw "line $j,0 $j,$height" \) -composite "ver_video_"$f
   
 
 #convert *.png -background none -mosaic gotowy.png
@@ -54,7 +61,9 @@ do
   #convert $f -append test.png
 #nie działa dodwanie do istniejącego pliku :(((
   i=$(($i+$number_of_pixels_to_move_hor))
+  echo "moving $i pixels horizontally this turn"
   j=$(($j+$number_of_pixels_to_move_ver))
+    echo "moving $j pixels vertically this turn"
   #echo $i
   #echo $width
   #echo $height
@@ -65,7 +74,14 @@ done
 #echo "Processing still vertical image..."
 #convert ver*.png -background none -mosaic gotowy_vertical.png
 echo "Processing horizontal video..."
-#Nie dodaje audio do plików...
-ffmpeg -i "hor_video_img%04d.png" -i $1 -r:v 30 -c copy -map 0:v:0 -map 1:a:0 -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an hor_video.mp4
+ffmpeg -i "hor_video_img%04d.png" -i $1 -r:v $framerate -c copy -map 0:v:0 -map 1:a:0? -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an hor_video.mp4
 echo "Processing vertical video..."
-ffmpeg -i "ver_video_img%04d.png" -i $1 -r:v 30 -c copy -map 0:v:0 -map 1:a:0 -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an ver_video.mp4
+ffmpeg -i "ver_video_img%04d.png" -i $1 -r:v $framerate -c copy -map 0:v:0 -map 1:a:0? -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an ver_video.mp4
+echo "Making temporary token video for testing"
+ffmpeg -i "img%04d.png" -i $1 -r:v $framerate -c copy -map 0:v:0 -map 1:a:0? -codec:v libx264 -preset veryslow -pix_fmt yuv420p -crf 28 -an middle_video.mp4
+echo "Making serial video"
+ffmpeg -i hor_video.mp4 -i middle_video.mp4 -i ver_video.mp4 -filter_complex "[1:v][0:v]scale2ref=oh*mdar:ih[1v][0v];[2:v][0v]scale2ref=oh*mdar:ih[2v][0v];[0v][1v][2v]hstack=3,scale='2*trunc(iw/2)':'2*trunc(ih/2)'" final.mp4
+echo "Deleting unnecesarry files..."
+rm *.png
+
+

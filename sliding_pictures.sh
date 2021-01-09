@@ -1,9 +1,47 @@
 #!/bin/bash
 #FILES=/path/to/*
+
+echo "start of a program"
+#first download some number of pictures in .jpg format
+for n in {1..10}; do wget -O $n.jpg https://picsum.photos/200/300.jpg; sleep 2; done
+
+jpg_width=0
+jpg_height=0
+total_width=0
+total_height=0
+duration_of_slide_in_seconds=1
+no_of_pixels_to_slide=0
+#check .jpg image's sizes and make white canvas only as wide and high as widest and highest picture
 for f in *.jpg
 do
+
+jpg_width=$(identify -format "%w" $f)
+jpg_height=$(identify -format "%h" $f)
+echo "width is"$jpg_width
+echo "height is"$jpg_height
+
+
+if [ $jpg_width -gt $total_width ]
+then
+total_width=$jpg_width
+fi
+
+if [ $jpg_height -gt $total_height ]
+then
+total_height=$jpg_height
+fi
+
+
+done
+
+for f in *.jpg
+do
+#measure what is the height of sliding picture
+jpg_height=$(identify -format "%h" $f)
+#divide height of picture by duration of one slide video
+no_of_pixels_to_slide=$(($jpg_height/($duration_of_slide_in_seconds*25)*2))
 #rodziel obrazy na klatki z przesuwających się jpgów
-ffmpeg -f lavfi -i "color=white:d=2:s=1920x1080[background]; movie=$f[overlay]; [background][overlay]overlay='(W-w)/2:H-n*120' " img$f%04d.png
+ffmpeg -f lavfi -i "color=white:d='$duration_of_slide_in_seconds':s='$total_width'x'$total_height'[background]; movie=$f[overlay]; [background][overlay]overlay='(W-w)/2:H-n*'$no_of_pixels_to_slide'' " img$f%04d.png
 
 done
 
@@ -25,9 +63,23 @@ echo "height is"$height
 #jak szeroki ma być pasek przesuwający się po ekranie, uśredniony do liczby całkowitej
 #number_of_pixels_to_move_hor=$((("$height"+"$numberoffiles"-1)/"$height"))
 number_of_pixels_to_move_hor=$(("$height"/"$numberoffiles"))
+
+#if less than 1 make it 1 pixel
+if [ $number_of_pixels_to_move_hor -lt 1 ]
+then
+number_of_pixels_to_move_hor=1
+fi
+
 echo " numer of pixels to move horizontally is " $number_of_pixels_to_move_hor
 #number_of_pixels_to_move_ver=$((("$width"+"$numberoffiles"-1)/"$width"))
 number_of_pixels_to_move_ver=$(("$width"/"$numberoffiles"))
+
+#if less than 1 make it 1 pixel
+if [ $number_of_pixels_to_move_ver -lt 1 ]
+then
+number_of_pixels_to_move_ver=1
+fi
+
 echo " numer of pixels to move vertically is " $number_of_pixels_to_move_ver
 i=1
 j=1
@@ -66,6 +118,7 @@ count_loop=$(($count_loop+1))
   #convert -size "$width"X"$height" canvas:transparent \(  $f -crop "$number_of_pixels_to_move_ver"X"$height"+$j+0 \) -geometry +$j+0 -composite "ver_video_"$f
   #convert $f -append test.png
 #nie działa dodwanie do istniejącego pliku :(((
+#clear
   i=$(($i+$number_of_pixels_to_move_hor))
   echo "moving $i pixels horizontally this turn"
   j=$(($j+$number_of_pixels_to_move_ver))
